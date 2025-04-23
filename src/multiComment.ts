@@ -1,10 +1,11 @@
 import * as core from "@actions/core"
 import * as github from "@actions/github"
+import { GitHub } from "@actions/github/lib/utils"
 import fs from "node:fs/promises"
 import { acquireLock } from "./acquireLock"
 import { createComment, findComment, updateComment } from "./comments"
 
-export async function run() {
+export async function run(octokit: InstanceType<typeof GitHub>) {
   try {
     const section = core.getInput("section")
     const message = core.getInput("message")
@@ -24,15 +25,15 @@ export async function run() {
     }
 
     const content = message || (await fs.readFile(filePath, "utf8"))
-    let comment = await findComment(issueNumber)
+    let comment = await findComment(issueNumber, octokit)
 
     if (comment) {
       const commentId = comment.id
-      await using _ = await acquireLock("comment", commentId)
-      comment = await updateComment(commentId, section, content)
+      await using _ = await acquireLock("comment", commentId, octokit)
+      comment = await updateComment(commentId, section, content, octokit)
     } else {
-      await using _ = await acquireLock("issue", issueNumber)
-      comment = await createComment(issueNumber, section, content)
+      await using _ = await acquireLock("issue", issueNumber, octokit)
+      comment = await createComment(issueNumber, section, content, octokit)
     }
 
     core.setOutput("id", comment.id)
